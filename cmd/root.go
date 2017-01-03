@@ -28,21 +28,29 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var (
+	cfgFile  string
+	version  string
+	revision string
+)
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "refcode-cli",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-// Uncomment the following line if your bare application
-// has an action associated with it:
-//	Run: func(cmd *cobra.Command, args []string) { },
+	Short: "Reference Code Mapper utility",
+	Long: `refcode is a CLI library for programmers that maps reference codes
+and embbeds them into your source code files.
+The reference codes are for the users of your project; a reference code
+will be shown to the user when any error happens. The user can inquiry about
+the error with the code. And you can research find the place where the error
+occuured by the code.`,
+	// Uncomment the following line if your bare application
+	// has an action associated with it:
+	Run: func(cmd *cobra.Command, args []string) {
+		if v, _ := cmd.Flags().GetBool("version"); v {
+			fmt.Printf("v%v\n", version)
+		}
+	},
 }
 
 // Execute adds all child commands to the root command sets flags appropriately.
@@ -61,10 +69,10 @@ func init() {
 	// Cobra supports Persistent Flags, which, if defined here,
 	// will be global for your application.
 
-	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.refcode-cli.yaml)")
+	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.refcode.yaml)")
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	RootCmd.Flags().BoolP("version", "v", false, "show version")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -73,9 +81,9 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	}
 
-	viper.SetConfigName(".refcode-cli") // name of config file (without extension)
-	viper.AddConfigPath("$HOME")  // adding home directory as first search path
-	viper.AutomaticEnv()          // read in environment variables that match
+	viper.SetConfigName(".refcode") // name of config file (without extension)
+	viper.AddConfigPath("$HOME")    // adding home directory as first search path
+	viper.AutomaticEnv()            // read in environment variables that match
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
