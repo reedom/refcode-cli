@@ -27,11 +27,13 @@ import (
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/reedom/refcode-cli/lib"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
+	verbose  bool
 	cfgFile  string
 	version  string
 	revision string
@@ -87,6 +89,7 @@ func init() {
 	// |           |       | dataDir          |
 	// | endpoint  | u     | remote.endpoint  |
 	// | secretKey | k     | remote.secretKey |
+	// | verbose   |       |                  |
 	//
 	// [local]
 	// | arg long  | short | config           |
@@ -115,11 +118,17 @@ func init() {
 		"refcode management server secret key")
 	viper.BindPFlag("remote.secretKey", RootCmd.PersistentFlags().Lookup("secret"))
 
+	RootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "print verbose informational messages")
+
 	RootCmd.Flags().BoolP("version", "v", false, "show version")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	if verbose {
+		refcode.EnableVerboseLog()
+	}
+
 	var err error
 	if cfgFile != "" { // enable ability to specify config file via flag
 		if cfgFile, err = homedir.Expand(cfgFile); err == nil {
@@ -148,4 +157,5 @@ func initConfig() {
 		return
 	}
 	viper.Set("dataDir", dataDir)
+	refcode.Verbose.Println("dataDir:", dataDir)
 }
