@@ -21,38 +21,59 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // mapCmd represents the map command
 var mapCmd = &cobra.Command{
 	Use:   "map",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Map reference code into source code files.",
+	Long: `Traverse source code files and replace refcode skeleton string
+with real reference code.`,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		return initErr
+	},
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: Work your own magic here
-		fmt.Println("map called")
 	},
 }
 
 func init() {
 	RootCmd.AddCommand(mapCmd)
 
-	// Here you will define your flags and configuration settings.
+	// Command.PersistentFlags() is for command-global flag settings.
+	// Command.Flags() is for command-local flag settings.
+	// viper.BindPFlag() will overwrite viper config entry by the specified command flag.
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// mapCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// [local]
+	// | arg long         | short | config                |
+	// |------------------|-------|-----------------------|
+	// | dryrun           | n     |                       |
+	// | pattern          | p     | mapper.pattern        |
+	// | replace          | r     | mapper.replace        |
+	// | includes         | i     | files.includes        |
+	// | excludes         | x     | files.excludes        |
+	// | global-gitignore |       | files.globalGitIgnore |
+	// | symlink          |       | files.followSymlink   |
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// mapCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	mapCmd.Flags().BoolP("dryrun", "n", false, "dry run")
 
+	mapCmd.Flags().StringP("pattern", "p", "", "source pattern in regular expression")
+	viper.BindPFlag("mapper.pattern", mapCmd.Flags().Lookup("pattern"))
+
+	mapCmd.Flags().StringP("replare", "r", "", "replace template")
+	viper.BindPFlag("mapper.replace", mapCmd.Flags().Lookup("replace"))
+
+	mapCmd.Flags().StringSliceP("includes", "i", nil, "include file patterns, delimited by comma(,)")
+	// viper.BindPFlag("files.includes", mapCmd.Flags().Lookup("includes"))
+
+	mapCmd.Flags().StringSliceP("excludes", "x", nil, "exclude file patterns, this exceeds includes")
+	viper.BindPFlag("files.excludes", mapCmd.Flags().Lookup("excludes"))
+
+	mapCmd.Flags().BoolP("global-gitignore", "", false, "whether apply ~/.gitignore to file include/exclude pattern")
+	viper.BindPFlag("files.globalGitIgnore", mapCmd.Flags().Lookup("global-gitignore"))
+
+	mapCmd.Flags().BoolP("symlink", "", false, "whether follow symlink")
+	viper.BindPFlag("files.followSymlink", mapCmd.Flags().Lookup("symlink"))
 }
