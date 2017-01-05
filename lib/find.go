@@ -12,13 +12,12 @@ type FileFinder interface {
 	Start(root string)
 }
 
-// FileFinderOpt is FileFinder configurations.
+// FileFinderOpt is FileFinder configuration.
 type FileFinderOpt struct {
 	Includes        []string
 	Excludes        []string
-	FollowSymlinks  bool
 	GlobalGitIgnore bool
-	Verbose         bool
+	FollowSymlinks  bool
 }
 
 type fileFinder struct {
