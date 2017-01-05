@@ -36,6 +36,7 @@ with real reference code.`,
 	},
 
 	Run: func(cmd *cobra.Command, args []string) {
+		buildMapOpts(cmd)
 	},
 }
 
@@ -66,7 +67,7 @@ func init() {
 	viper.BindPFlag("mapper.replace", mapCmd.Flags().Lookup("replace"))
 
 	mapCmd.Flags().StringSliceP("includes", "i", nil, "include file patterns, delimited by comma(,)")
-	// viper.BindPFlag("files.includes", mapCmd.Flags().Lookup("includes"))
+	viper.BindPFlag("files.includes", mapCmd.Flags().Lookup("includes"))
 
 	mapCmd.Flags().StringSliceP("excludes", "x", nil, "exclude file patterns, this exceeds includes")
 	viper.BindPFlag("files.excludes", mapCmd.Flags().Lookup("excludes"))
@@ -76,4 +77,18 @@ func init() {
 
 	mapCmd.Flags().BoolP("symlink", "", false, "whether follow symlink")
 	viper.BindPFlag("files.followSymlink", mapCmd.Flags().Lookup("symlink"))
+}
+
+func buildMapOpts(cmd *cobra.Command) {
+	opts.Mapper.Pattern = viper.GetString("mapper.pattern")
+	opts.Mapper.Replace = viper.GetString("mapper.replace")
+	var err error
+	if opts.Mapper.DryRun, err = cmd.Flags().GetBool("dryrun"); err != nil {
+		panic(err)
+	}
+
+	opts.FileFinder.Includes = viper.GetStringSlice("files.includes")
+	opts.FileFinder.Excludes = viper.GetStringSlice("files.excludes")
+	opts.FileFinder.GlobalGitIgnore = viper.GetBool("files.globalGitIgnore")
+	opts.FileFinder.FollowSymlinks = viper.GetBool("files.followSymlink")
 }

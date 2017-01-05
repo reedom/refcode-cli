@@ -38,6 +38,7 @@ var (
 	version  string
 	revision string
 	initErr  error
+	opts     refcode.Option
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -76,6 +77,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(buildRootOpts)
 
 	// Command.PersistentFlags() is for command-global flag settings.
 	// Command.Flags() is for command-local flag settings.
@@ -158,4 +160,11 @@ func initConfig() {
 	}
 	viper.Set("dataDir", dataDir)
 	refcode.Verbose.Println("dataDir:", dataDir)
+}
+
+func buildRootOpts() {
+	opts.Codespace = viper.GetString("codespace")
+	opts.DataDir = viper.GetString("dataDir")
+	opts.Remote.Endpoint = viper.GetString("remote.endpoint")
+	opts.Remote.SecretKey = viper.GetString("remote.secretKey")
 }
