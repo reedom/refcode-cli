@@ -1,8 +1,6 @@
 package refcode_test
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"bytes"
@@ -11,39 +9,22 @@ import (
 	"strings"
 )
 
-var testBufTextFileLine = strings.Repeat("a", 70) + "\n"
+var testLine1 = strings.Repeat("a", 6) + "\n"
+var testLine2 = "ab"
 
-func createTestFileForBufTextFile(t *testing.T) *os.File {
-	f, err := ioutil.TempFile("", "refcode-cli")
-	if err != nil {
-		t.Fatal(err)
-	}
+func getReaderOfTextData(t *testing.T) io.ReadSeeker {
+	buf := bytes.Buffer{}
+	buf.WriteString(testLine1)
+	buf.WriteString(testLine1)
+	buf.WriteString(testLine2)
 
-	line := []byte(testBufTextFileLine)
-	_, err = f.Write(line)
-	_, err = f.Write(line)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	f.Seek(0, io.SeekStart)
-	return f
+	return bytes.NewReader(buf.Bytes())
 }
 
-func createTestFileForBufTextFileBinary(t *testing.T) *os.File {
-	f, err := ioutil.TempFile("", "refcode-cli")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	line := []byte("abc\x00def")
-	_, err = f.Write(line)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	f.Seek(0, io.SeekStart)
-	return f
+func getReaderOfBinaryData(t *testing.T) io.ReadSeeker {
+	buf := bytes.Buffer{}
+	buf.WriteString("abc\x00def")
+	return bytes.NewReader(buf.Bytes())
 }
 
 type testBufTextFile struct {
@@ -53,54 +34,52 @@ type testBufTextFile struct {
 }
 
 var testBufTextFiles = []testBufTextFile{
-	{len(testBufTextFileLine), []string{testBufTextFileLine, testBufTextFileLine}, false},
-	{len(testBufTextFileLine), []string{testBufTextFileLine}, true /* cancel */},
-	{len(testBufTextFileLine)*2 - 1, []string{testBufTextFileLine, testBufTextFileLine}, false},
-	{len(testBufTextFileLine) * 2, []string{testBufTextFileLine + testBufTextFileLine}, false},
+	{len(testLine1), []string{testLine1, testLine1, testLine2}, false},
+	{len(testLine1), []string{testLine1}, true /* cancel */},
+	{len(testLine1)*2 + len(testLine2) - 1, []string{testLine1 + testLine1, testLine2}, false},
+	{len(testLine1)*2 + len(testLine2) + 0, []string{testLine1 + testLine1, testLine2}, false},
+	{len(testLine1)*2 + len(testLine2) + 1, []string{testLine1 + testLine1 + testLine2}, false},
 }
 
 func TestBufTextFile(t *testing.T) {
-	f := createTestFileForBufTextFile(t)
-	defer func() {
-		f.Close()
-		os.Remove(f.Name())
-	}()
+	r := getReaderOfTextData(t)
 
-	for _, test := range testBufTextFiles {
-		buf := &bytes.Buffer{}
-		buf.Grow(test.capacity)
-		f.Seek(0, io.SeekStart)
-		tf, err := refcode.NewBufferedTextFile(f, buf)
+	refcode.EnableVerboseLog()
+	for i, test := range testBufTextFiles {
+		r.Seek(0, io.SeekStart)
+		buf := make([]byte, test.capacity)
+		tf, err := refcode.NewBufferedTextFile(r, buf)
 		if err != nil {
 			t.Errorf("Unexpected error %v", err)
 			continue
 		}
 
-		var actual []string
-		err = tf.Iterate(func(b []byte) bool {
-			actual = append(actual, string(b))
-			return !test.cancel
-		})
-		if err != nil {
-			t.Errorf("Unexpected error %v", err)
-			continue
-		}
+		for j := 0; j < 2; j++ {
+			var actual []string
+			err = tf.Iterate(func(b []byte) bool {
+				actual = append(actual, string(b))
+				return !test.cancel
+			})
+			if err != nil {
+				t.Errorf("Unexpected error %v", err)
+				break
+			}
 
-		// Ensure these files were not returned
-		if !sliceEquals(test.expected, actual) {
-			t.Errorf("Expects %v but found %v", test.expected, actual)
+			// Ensure these files were not returned
+			if !sliceEquals(test.expected, actual) {
+				t.Errorf("[test %d-%d] Expects %#v but found %#v", i, j, test.expected, actual)
+			}
+			if err = tf.Rewind(); err != nil {
+				break
+			}
 		}
 	}
 }
 
 func TestBufTextFileErrorForShortBuf(t *testing.T) {
-	f := createTestFileForBufTextFile(t)
-	defer func() {
-		f.Close()
-		os.Remove(f.Name())
-	}()
+	f := getReaderOfTextData(t)
 
-	buf := &bytes.Buffer{}
+	var buf []byte
 	_, err := refcode.NewBufferedTextFile(f, buf)
 	if err == nil {
 		t.Errorf("Expected error, actually no error")
@@ -108,14 +87,9 @@ func TestBufTextFileErrorForShortBuf(t *testing.T) {
 }
 
 func TestBufTextFileErrorForBinaryFile(t *testing.T) {
-	f := createTestFileForBufTextFileBinary(t)
-	defer func() {
-		f.Close()
-		os.Remove(f.Name())
-	}()
+	f := getReaderOfBinaryData(t)
 
-	buf := &bytes.Buffer{}
-	buf.Grow(64)
+	buf := make([]byte, 64)
 	tf, err := refcode.NewBufferedTextFile(f, buf)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)

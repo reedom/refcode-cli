@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
-	"os"
 )
 
 // ErrLineTooLong means that the file contains too long line
@@ -21,34 +20,39 @@ var ErrBinaryFile = errors.New("file content is likely binary data")
 // in a effective fasion.
 type BufferedTextFile interface {
 	Iterate(fn func([]byte) bool) error
+	Rewind() error
 }
 
 type bufferdTextFile struct {
-	f   *os.File
-	buf *bytes.Buffer
+	f   io.ReadSeeker
+	buf []byte
+	off int
+	pos int
+	eof bool
 }
 
 // NewBufferedTextFile returns a new BufferedTextFile to read from f.
 // It uses buf for a temporaly buffer.
 // It is the caller's responsibility to prepare buf with enough capacity.
-func NewBufferedTextFile(f *os.File, buf *bytes.Buffer) (BufferedTextFile, error) {
-	if buf.Cap() == 0 {
-		return nil, errors.New("buf should be initialized with Grow()")
-	}
-	if 0 < buf.Len() {
-		return nil, errors.New("buf should be empty")
+func NewBufferedTextFile(f io.ReadSeeker, buf []byte) (BufferedTextFile, error) {
+	if len(buf) == 0 {
+		return nil, errors.New("buf should have meaningful size")
 	}
 
-	return bufferdTextFile{f, buf}, nil
+	return &bufferdTextFile{
+		f:   f,
+		buf: buf,
+		off: -1,
+	}, nil
 }
 
-func (f bufferdTextFile) Iterate(fn func([]byte) bool) error {
-	f.Rewind()
+func (f *bufferdTextFile) hasEntireContent() bool {
+	return f.eof && f.off == f.pos
+}
 
-	if 0 < f.buf.Len() {
-		// it already read entire content
-
-		b := f.buf.Bytes()
+func (f *bufferdTextFile) Iterate(fn func([]byte) bool) error {
+	if f.hasEntireContent() {
+		b := f.buf[0:f.off]
 		if 0 < bytes.IndexByte(b, 0x00) {
 			return ErrBinaryFile
 		}
@@ -57,63 +61,68 @@ func (f bufferdTextFile) Iterate(fn func([]byte) bool) error {
 		return nil
 	}
 
+	f.off = 0
 	for {
-		freeLen := int64(f.buf.Cap() - f.buf.Len())
-		c, err := f.buf.ReadFrom(io.LimitReader(f.f, freeLen))
+		free := f.buf[f.off:]
+		c, err := f.f.Read(free)
 		if err != nil && err != io.EOF {
 			return err
 		}
-		if c == 0 { // EOF
+		if c == 0 && f.off == 0 { // EOF
+			f.eof = true
 			return nil
 		}
+		f.pos += c
 
-		b := f.buf.Bytes()
+		f.off += c
+		b := f.buf[0:f.off]
 		if 0 < bytes.IndexByte(b, 0x00) {
 			return ErrBinaryFile
 		}
 
-		if c < freeLen {
+		if f.off < len(f.buf) {
 			// reached to the end
+			f.eof = true
 			fn(b)
 			return nil
 		}
 
-		// possibly more contents left in the disk.
+		// possibly more contents left in the stream
 
 		i := bytes.LastIndexByte(b, '\n')
 		if i < 0 {
 			return ErrLineTooLong
 		}
 
-		next := fn(b[0 : i+1])
-		if !next {
+		if !fn(b[0 : i+1]) {
+			// callee wants to cancel
 			return nil
 		}
 
-		left := b[i+1:]
-		f.buf.Reset()
-		f.buf.Write(left)
+		// slide the remainig data to the head
+		tail := b[i+1 : f.off]
+		copy(f.buf, tail)
+		f.off = len(tail)
 	}
 }
 
 func (f *bufferdTextFile) Rewind() error {
-	if f.buf.Len() == 0 {
+	if f.off < 0 {
 		// initial state.
 		return nil
 	}
 
-	pos, err := f.f.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-
-	if pos < int64(f.buf.Cap()) {
-		// it has read entire content.
+	if f.hasEntireContent() {
 		return nil
 	}
 
-	// it has read some of the content and it is larger than the buffer.
-	f.buf.Reset()
-	f.f.Seek(0, io.SeekStart)
+	// rewind
+	_, err := f.f.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+	f.pos = 0
+	f.off = 0
+	f.eof = false
 	return nil
 }
