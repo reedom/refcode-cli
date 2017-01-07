@@ -18,7 +18,7 @@ var ErrBinaryFile = errors.New("file content is likely binary data")
 
 // BufferedTextFile provides an interface for reading a block of text
 // in a effective fasion.
-type BufferedTextFile interface {
+type BytesIterator interface {
 	Iterate(fn func([]byte) bool) error
 	Rewind() error
 }
@@ -31,10 +31,10 @@ type bufferdTextFile struct {
 	eof bool
 }
 
-// NewBufferedTextFile returns a new BufferedTextFile to read from f.
+// NewBytesIterator returns a new BytesIterator to read from f.
 // It uses buf for a temporaly buffer.
 // It is the caller's responsibility to prepare buf with enough capacity.
-func NewBufferedTextFile(f io.ReadSeeker, buf []byte) (BufferedTextFile, error) {
+func NewBytesIterator(f io.ReadSeeker, buf []byte) (BytesIterator, error) {
 	if len(buf) == 0 {
 		return nil, errors.New("buf should have meaningful size")
 	}
