@@ -11,12 +11,14 @@ import (
 
 func TestTransformContent(t *testing.T) {
 	code := []byte(`
-// var refcode = "@@REFCODE";
+// var refcode = "@@REFCODE@@REFCODE";
 alertError("@@REFCODE");
+return;
 `)
 	expected := []byte(`
-// var refcode = "1";
-alertError("2");
+// var refcode = "12";
+alertError("3");
+return;
 `)
 
 	i := 0

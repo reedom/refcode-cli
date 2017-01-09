@@ -26,29 +26,31 @@ func TransformContent(ctx context.Context, r io.Reader, w io.Writer, marker []by
 			return ctx.Err()
 		default:
 			b := s.Bytes()
-			i := bytes.Index(b, marker)
-			if i < 0 {
-				if _, err := w.Write(b); err != nil {
+			for {
+				i := bytes.Index(b, marker)
+				if i < 0 {
+					if _, err := w.Write(b); err != nil {
+						return err
+					}
+					break
+				}
+
+				_, err := w.Write(b[0:i])
+				if err != nil {
 					return err
 				}
-				break
-			}
-
-			_, err := w.Write(b[0:i])
-			if err != nil {
-				return err
-			}
-			data, err := fn(ctx)
-			if err != nil {
-				return err
-			}
-			_, err = w.Write(data)
-			if err != nil {
-				return err
-			}
-			_, err = w.Write(b[i+l:])
-			if err != nil {
-				return err
+				data, err := fn(ctx)
+				if err != nil {
+					return err
+				}
+				_, err = w.Write(data)
+				if err != nil {
+					return err
+				}
+				b = b[i+l:]
+				if len(b) == 0 {
+					break
+				}
 			}
 		}
 	}
