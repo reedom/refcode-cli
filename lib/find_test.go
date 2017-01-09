@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"context"
 	"github.com/reedom/refcode-cli/lib"
 )
 
@@ -65,7 +66,7 @@ func TestFindFile(t *testing.T) {
 			Excludes: test.excludes,
 		}
 		find := refcode.NewFileFinder(out, opts)
-		go find.Start(tmpdir)
+		go find.Start(context.Background(), tmpdir)
 
 		actual := getFoundFiles(out)
 

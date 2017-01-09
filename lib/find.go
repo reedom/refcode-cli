@@ -1,6 +1,7 @@
 package refcode
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 
@@ -9,7 +10,7 @@ import (
 
 // FileFinder traverses directory and passes file paths through out channel.
 type FileFinder interface {
-	Start(root string)
+	Start(ctx context.Context, root string)
 }
 
 // FileFinderOpt is FileFinder configuration.
@@ -31,7 +32,7 @@ func NewFileFinder(out chan string, opts FileFinderOpt) FileFinder {
 }
 
 // Start starts directory traverse.
-func (f fileFinder) Start(root string) {
+func (f fileFinder) Start(ctx context.Context, root string) {
 	defer close(f.out)
 	var ignores ignoreMatchers
 
@@ -57,7 +58,7 @@ func (f fileFinder) Start(root string) {
 	}
 
 	includes := f.includes(root)
-	concurrentWalk(root, ignores, f.opts.FollowSymlinks, func(info fileInfo, depth int, ignores ignoreMatchers) (ignoreMatchers, error) {
+	walkFn := func(info fileInfo, ignores ignoreMatchers) (ignoreMatchers, error) {
 		Verbose.Println("check path", info.relpath)
 		if info.isDir(f.opts.FollowSymlinks) {
 			if ignores.Match(info.relpath, true) {
@@ -90,7 +91,8 @@ func (f fileFinder) Start(root string) {
 
 		f.out <- info.relpath
 		return ignores, nil
-	})
+	}
+	concurrentWalk(ctx, root, ignores, f.opts.FollowSymlinks, walkFn)
 }
 
 func (f fileFinder) includes(root string) ignoreMatchers {

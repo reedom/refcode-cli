@@ -1,25 +1,32 @@
 package refcode
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 )
 
-type walkFunc func(info fileInfo, depth int, ignores ignoreMatchers) (ignoreMatchers, error)
+type walkFunc func(info fileInfo, ignores ignoreMatchers) (ignoreMatchers, error)
 
-func concurrentWalk(root string, ignores ignoreMatchers, followed bool, walkFn walkFunc) error {
+func concurrentWalk(ctx context.Context, root string, ignores ignoreMatchers, followed bool, walkFn walkFunc) error {
 	info, err := os.Lstat(root)
 	if err != nil {
 		return err
 	}
 	sem := make(chan struct{}, 16)
-	return walk(newFileInfo(root, info), 1, ignores, followed, walkFn, sem)
+	return walk(ctx, newFileInfo(root, info), ignores, followed, walkFn, sem)
 }
 
-func walk(info fileInfo, depth int, parentIgnores ignoreMatchers, followed bool, walkFn walkFunc, sem chan struct{}) error {
-	ignores, walkError := walkFn(info, depth, parentIgnores)
+func walk(ctx context.Context, info fileInfo, parentIgnores ignoreMatchers, followed bool, walkFn walkFunc, sem chan struct{}) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	ignores, walkError := walkFn(info, parentIgnores)
 	if walkError != nil {
 		if info.IsDir() && walkError == filepath.SkipDir {
 			return nil
@@ -36,20 +43,19 @@ func walk(info fileInfo, depth int, parentIgnores ignoreMatchers, followed bool,
 		return err
 	}
 
-	depth++
 	wg := &sync.WaitGroup{}
 	for _, file := range files {
 		f := newFileInfo(info.relpath, file)
 		select {
 		case sem <- struct{}{}:
 			wg.Add(1)
-			go func(file fileInfo, depth int, ignores ignoreMatchers, wg *sync.WaitGroup) {
+			go func(file fileInfo, ignores ignoreMatchers, wg *sync.WaitGroup) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				walk(file, depth, ignores, followed, walkFn, sem)
-			}(f, depth, ignores, wg)
+				walk(ctx, file, ignores, followed, walkFn, sem)
+			}(f, ignores, wg)
 		default:
-			walk(f, depth, ignores, followed, walkFn, sem)
+			walk(ctx, f, ignores, followed, walkFn, sem)
 		}
 	}
 	wg.Wait()
