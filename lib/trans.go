@@ -26,7 +26,6 @@ func CountMarkerInContent(ctx context.Context, r io.Reader, marker []byte) (c in
 		default:
 			b := s.Bytes()
 			if 0 <= bytes.IndexByte(b, 0x00) {
-				//Verbose.Printf("skip binary file %q", c.filepath)
 				err = ErrBinaryFile
 				return
 			}

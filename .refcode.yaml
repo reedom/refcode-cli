@@ -1,0 +1,16 @@
+codespace: github.com/reedom/refcode-cli
+dataDir: $HOME/.refcode/
+
+mapper:
+  pattern: '^(\s+refcode :?= )""'
+  replace: '\1"%REV%-%CODE%"'
+
+files:
+  globalGitIgnore: true
+  includes: ['*.go']
+  excludes: ['*_test.go', '.*.go', '/vendor']
+  followSymlink: false
+
+remote:
+  endpoint: https://refcode.reedom.com/
+  secretKey: abcdefg
