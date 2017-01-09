@@ -25,6 +25,7 @@ func setup(t *testing.T) string {
 	setupFile("./top.txt")
 	setupFile("aaa/bbb/ccc.txt")
 	setupFile("aaa/bbb/ccc.md")
+	setupFile("aaa/.git/readme.txt")
 	setupFile("zzz/yyy/xxx.txt")
 
 	return tmpdir

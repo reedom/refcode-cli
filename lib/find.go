@@ -19,6 +19,7 @@ type FileFinderOpt struct {
 	Excludes        []string
 	GlobalGitIgnore bool
 	FollowSymlinks  bool
+	FollowHidden    bool
 }
 
 type fileFinder struct {
@@ -66,6 +67,10 @@ func (f fileFinder) Start(ctx context.Context, root string) {
 				return ignores, filepath.SkipDir
 			}
 
+			if !f.opts.FollowHidden && isHidden(info.Name()) {
+				return ignores, filepath.SkipDir
+			}
+
 			Verbose.Println("enter directory", info.path)
 			ignores = append(ignores, newIgnoreMatchers(info.path, []string{".gitignore"})...)
 			return ignores, nil
@@ -105,4 +110,11 @@ func (f fileFinder) includes(root string) ignoreMatchers {
 			root,
 			strings.NewReader(strings.Join(f.opts.Includes, "\n"))),
 	}
+}
+
+func isHidden(name string) bool {
+	if name == "." || name == ".." {
+		return false
+	}
+	return 1 < len(name) && name[0] == '.'
 }
