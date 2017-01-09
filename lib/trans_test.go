@@ -9,6 +9,21 @@ import (
 	"github.com/reedom/refcode-cli/lib"
 )
 
+func TestCountMarkerInContent(t *testing.T) {
+	code := []byte(`
+// var refcode = "@@REFCODE@@REFCODE";
+alertError("@@REFCODE");
+return;
+`)
+	r := bytes.NewReader(code)
+	c, err := refcode.CountMarkerInContent(context.Background(), r, []byte("@@REFCODE"))
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if c != 3 {
+		t.Errorf("expected count is 3 but %v", c)
+	}
+}
+
 func TestTransformContent(t *testing.T) {
 	code := []byte(`
 // var refcode = "@@REFCODE@@REFCODE";
