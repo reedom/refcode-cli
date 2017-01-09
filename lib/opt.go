@@ -1,5 +1,9 @@
 package refcode
 
+import (
+	"path/filepath"
+)
+
 // Option bundles sub Optionurations.
 type Option struct {
 	Codespace  string
@@ -19,4 +23,8 @@ type RemoteOpt struct {
 // CacheOption Optionures cache functionality.
 type CacheOption struct {
 	CachePath string
+}
+
+func (o Option) storeDir() string {
+	return filepath.Join(o.DataDir, "store")
 }
