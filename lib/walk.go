@@ -38,14 +38,14 @@ func walk(ctx context.Context, info fileInfo, parentIgnores ignoreMatchers, foll
 		return nil
 	}
 
-	files, err := ioutil.ReadDir(info.relpath)
+	files, err := ioutil.ReadDir(info.path)
 	if err != nil {
 		return err
 	}
 
 	wg := &sync.WaitGroup{}
 	for _, file := range files {
-		f := newFileInfo(info.relpath, file)
+		f := newFileInfo(filepath.Join(info.path, file.Name()), file)
 		select {
 		case sem <- struct{}{}:
 			wg.Add(1)

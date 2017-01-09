@@ -59,19 +59,19 @@ func (f fileFinder) Start(ctx context.Context, root string) {
 
 	includes := f.includes(root)
 	walkFn := func(info fileInfo, ignores ignoreMatchers) (ignoreMatchers, error) {
-		Verbose.Println("check path", info.relpath)
+		Verbose.Println("check path", info.path)
 		if info.isDir(f.opts.FollowSymlinks) {
-			if ignores.Match(info.relpath, true) {
-				Verbose.Println("skip directory", info.relpath, "(matches with excludes/gitignore)")
+			if ignores.Match(info.path, true) {
+				Verbose.Println("skip directory", info.path, "(matches with excludes/gitignore)")
 				return ignores, filepath.SkipDir
 			}
 
-			Verbose.Println("enter directory", info.relpath)
-			ignores = append(ignores, newIgnoreMatchers(info.relpath, []string{".gitignore"})...)
+			Verbose.Println("enter directory", info.path)
+			ignores = append(ignores, newIgnoreMatchers(info.path, []string{".gitignore"})...)
 			return ignores, nil
 		}
 		if !f.opts.FollowSymlinks && info.isSymlink() {
-			Verbose.Println("skip symlink", info.relpath)
+			Verbose.Println("skip symlink", info.path)
 			return ignores, nil
 		}
 
@@ -79,17 +79,17 @@ func (f fileFinder) Start(ctx context.Context, root string) {
 			return ignores, nil
 		}
 
-		if ignores.Match(info.relpath, false) {
-			Verbose.Println("skip file", info.relpath, "(matches with excludes/gitignore)")
+		if ignores.Match(info.path, false) {
+			Verbose.Println("skip file", info.path, "(matches with excludes/gitignore)")
 			return ignores, nil
 		}
 
-		if !includes.Match(info.relpath, false) {
-			Verbose.Println("skip file", info.relpath, "(does not matche with includes)")
+		if !includes.Match(info.path, false) {
+			Verbose.Println("skip file", info.path, "(does not matche with includes)")
 			return ignores, nil
 		}
 
-		f.out <- info.relpath
+		f.out <- info.path
 		return ignores, nil
 	}
 	concurrentWalk(ctx, root, ignores, f.opts.FollowSymlinks, walkFn)

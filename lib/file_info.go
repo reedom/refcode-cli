@@ -3,18 +3,16 @@ package refcode
 import (
 	"io/ioutil"
 	"os"
-	"path/filepath"
 )
 
 type fileInfo struct {
-	path    string
-	relpath string
+	path string
 	os.FileInfo
 }
 
 func (f fileInfo) isDir(follow bool) bool {
 	if follow && f.isSymlink() {
-		if _, err := ioutil.ReadDir(f.relpath); err == nil {
+		if _, err := ioutil.ReadDir(f.path); err == nil {
 			return true
 		}
 		return false
@@ -31,5 +29,5 @@ func (f fileInfo) isNamedPipe() bool {
 }
 
 func newFileInfo(path string, info os.FileInfo) fileInfo {
-	return fileInfo{path, filepath.Join(path, info.Name()), info}
+	return fileInfo{path, info}
 }
