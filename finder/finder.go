@@ -9,9 +9,9 @@ import (
 	"github.com/reedom/refcode-cli/log"
 )
 
-// FileFinder traverses directory and passes file paths through out channel.
+// FileFinder traverses directory and passes file paths.
 type FileFinder interface {
-	Start(ctx context.Context, root string)
+	Start(ctx context.Context, out chan string)
 }
 
 // FileFinderOpt is FileFinder configuration.
@@ -24,18 +24,18 @@ type FileFinderOpt struct {
 }
 
 type fileFinder struct {
-	out  chan string
 	opts FileFinderOpt
+	root string
 }
 
 // NewFileFinder returns FileFinder object.
-func NewFileFinder(out chan string, opts FileFinderOpt) FileFinder {
-	return fileFinder{out, opts}
+func NewFileFinder(opts FileFinderOpt, root string) FileFinder {
+	return fileFinder{opts, root}
 }
 
 // Start starts directory traverse.
-func (f fileFinder) Start(ctx context.Context, root string) {
-	defer close(f.out)
+func (f fileFinder) Start(ctx context.Context, out chan string) {
+	defer close(out)
 	var ignores ignoreMatchers
 
 	if len(f.opts.Includes) == 0 {
@@ -46,20 +46,20 @@ func (f fileFinder) Start(ctx context.Context, root string) {
 	// add ignores from ignore option.
 	if 0 < len(f.opts.Excludes) {
 		ignores = append(ignores, gitignore.NewGitIgnoreFromReader(
-			root,
+			f.root,
 			strings.NewReader(strings.Join(f.opts.Excludes, "\n")),
 		))
 	}
 
 	// add global gitignore.
 	if f.opts.GlobalGitIgnore {
-		if ignore := globalGitIgnore(root); ignore != nil {
+		if ignore := globalGitIgnore(f.root); ignore != nil {
 			log.Verbose.Println("use ~/.gitignore")
 			ignores = append(ignores, ignore)
 		}
 	}
 
-	includes := f.includes(root)
+	includes := f.includes(f.root)
 	walkFn := func(info fileInfo, ignores ignoreMatchers) (ignoreMatchers, error) {
 		log.Verbose.Println("check path", info.path)
 		if info.isDir(f.opts.FollowSymlinks) {
@@ -95,10 +95,10 @@ func (f fileFinder) Start(ctx context.Context, root string) {
 			return ignores, nil
 		}
 
-		f.out <- info.path
+		out <- info.path
 		return ignores, nil
 	}
-	concurrentWalk(ctx, root, ignores, f.opts.FollowSymlinks, walkFn)
+	concurrentWalk(ctx, f.root, ignores, f.opts.FollowSymlinks, walkFn)
 }
 
 func (f fileFinder) includes(root string) ignoreMatchers {

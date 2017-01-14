@@ -61,13 +61,13 @@ func TestFindFile(t *testing.T) {
 
 	tmpdir = "."
 	for _, test := range testFindFiles {
-		out := make(chan string)
 		opts := finder.FileFinderOpt{
 			Includes: test.includes,
 			Excludes: test.excludes,
 		}
-		find := finder.NewFileFinder(out, opts)
-		go find.Start(context.Background(), tmpdir)
+		find := finder.NewFileFinder(opts, tmpdir)
+		out := make(chan string)
+		go find.Start(context.Background(), out)
 
 		actual := getFoundFiles(out)
 
