@@ -2,7 +2,7 @@ package mapper
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -17,9 +17,13 @@ type PathProvider interface {
 	Start(ctx context.Context, out chan string)
 }
 
+type IDGenerator interface {
+	Generate(ctx context.Context, key, sub []byte, n int) ([][]byte, error)
+}
+
 // Mapper replaces refcode template with reference code in each souce file.
 type Mapper interface {
-	Run(ctx context.Context, p PathProvider) error
+	Run(ctx context.Context) error
 }
 
 type mapper struct {
@@ -28,6 +32,8 @@ type mapper struct {
 	db    *leveldb.DB
 	store Store
 	stat  mapperStat
+	pp    PathProvider
+	idgen IDGenerator
 }
 
 type mapperStat struct {
@@ -52,7 +58,7 @@ func (s *mapperStat) getMappedCount() int32 {
 }
 
 // NewMapper returns Mapper object.
-func NewMapper(opts Option) (Mapper, error) {
+func NewMapper(opts Option, pp PathProvider, idgen IDGenerator) (Mapper, error) {
 	db, err := leveldb.OpenFile(opts.storeDir(), nil)
 	if err != nil {
 		return nil, err
@@ -64,6 +70,8 @@ func NewMapper(opts Option) (Mapper, error) {
 		opts:  opts,
 		db:    db,
 		store: store,
+		pp:    pp,
+		idgen: idgen,
 	}, nil
 }
 
@@ -82,8 +90,8 @@ func (m mapper) GetMappedCount() int32 {
 }
 
 // Run starts mapper.
-func (m mapper) Run(ctx context.Context, p PathProvider) error {
-	go p.Start(ctx, m.in)
+func (m mapper) Run(ctx context.Context) error {
+	go m.pp.Start(ctx, m.in)
 
 	done := make(chan struct{})
 	go func() {
@@ -159,7 +167,7 @@ func (m mapper) handle(ctx context.Context, path string) {
 		return
 	}
 
-	transFn, err := m.createTransFn(path, markerCount)
+	transFn, err := m.createTransFn(ctx, path, markerCount)
 	if err != nil {
 		log.ErrorLog.Printf("Failed to prepare refcode mapper for %q, %v", path, err)
 		return
@@ -205,10 +213,19 @@ func (m mapper) handle(ctx context.Context, path string) {
 
 var refcode int
 
-func (m mapper) createTransFn(path string, markerCount int) (TransFn, error) {
+func (m mapper) createTransFn(ctx context.Context, path string, markerCount int) (TransFn, error) {
+	codes, err := m.idgen.Generate(ctx, []byte(m.opts.Codespace), nil, markerCount)
+	if err != nil {
+		return nil, err
+	}
+	i := 0
 	fn := func(ctx context.Context) ([]byte, error) {
-		refcode++
-		return []byte(fmt.Sprintf("%d", refcode)), nil
+		if len(codes) <= i {
+			return nil, errors.New("source file is updated")
+		}
+		code := codes[i]
+		i++
+		return code, nil
 	}
 	return fn, nil
 }

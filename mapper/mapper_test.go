@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/reedom/refcode-cli/mapper"
@@ -45,13 +46,13 @@ return;
 		WorkBufSize:    2,
 	}
 
-	mapper, err := mapper.NewMapper(opts)
+	mapper, err := mapper.NewMapper(opts, finder{path}, idgen{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// mapper.EnableVerboseLog()
-	err = mapper.Run(context.Background(), finder{path})
+	err = mapper.Run(context.Background())
 	if err != nil {
 		t.Error("mapper.Run returns error:", err)
 		return
@@ -73,4 +74,15 @@ type finder struct {
 func (f finder) Start(ctx context.Context, out chan string) {
 	out <- f.path
 	close(out)
+}
+
+type idgen struct {
+}
+
+func (g idgen) Generate(ctx context.Context, key, sub []byte, n int) ([][]byte, error) {
+	codes := make([][]byte, n)
+	for i := range codes {
+		codes[i] = strconv.AppendInt(nil, int64(i+1), 10)
+	}
+	return codes, nil
 }
