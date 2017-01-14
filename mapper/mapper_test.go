@@ -1,4 +1,4 @@
-package refcode_test
+package mapper_test
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/reedom/refcode-cli/lib"
+	"github.com/reedom/refcode-cli/mapper"
 )
 
 func TestMapper(t *testing.T) {
@@ -35,29 +35,23 @@ return;
 		t.Fatal(err)
 	}
 
-	opts := refcode.Option{
-		Codespace: "tests",
-		DataDir:   filepath.Join(tmpdir, "data"),
-		Mapper: refcode.MapperOpt{
-			Marker:         "@@REFCODE",
-			ReplaceFormat:  "%d",
-			InChannelCount: 2,
-			ParallelCount:  2,
-			WorkBufSize:    2,
-		},
-		FileFinder: refcode.FileFinderOpt{
-			Includes:        []string{"*.js"},
-			GlobalGitIgnore: false,
-		},
+	opts := mapper.Option{
+		Codespace:      "tests",
+		DataDir:        filepath.Join(tmpdir, "data"),
+		Marker:         "@@REFCODE",
+		ReplaceFormat:  "%d",
+		InChannelCount: 2,
+		ParallelCount:  2,
+		WorkBufSize:    2,
 	}
 
-	mapper, err := refcode.NewMapper(opts)
+	mapper, err := mapper.NewMapper(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// refcode.EnableVerboseLog()
-	err = mapper.Run(context.Background(), tmpdir)
+	// mapper.EnableVerboseLog()
+	err = mapper.Run(context.Background(), finder{path})
 	if err != nil {
 		t.Error("mapper.Run returns error:", err)
 		return
@@ -70,4 +64,13 @@ return;
 	if !bytes.Equal(expected, actual) {
 		t.Errorf("mapper result unmatch\nexpected: %s\nactual: %s", string(expected), string(actual))
 	}
+}
+
+type finder struct {
+	path string
+}
+
+func (f finder) Start(ctx context.Context, out chan string) {
+	out <- f.path
+	close(out)
 }

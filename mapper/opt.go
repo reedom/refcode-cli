@@ -1,28 +1,21 @@
-package refcode
+package mapper
 
 import (
 	"path/filepath"
 )
 
-// Option bundles sub Optionurations.
+// Option is Mapper configuration.
 type Option struct {
-	Codespace  string
-	DataDir    string
-	Mapper     MapperOpt
-	FileFinder FileFinderOpt
-	Remote     RemoteOpt
-	Cache      CacheOption
-}
+	Codespace string
+	DataDir   string
 
-// RemoteOpt Optionures API remote of the reference code management server.
-type RemoteOpt struct {
-	Endpoint  string
-	SecretKey string
-}
+	Marker        string
+	ReplaceFormat string
+	DryRun        bool
 
-// CacheOption Optionures cache functionality.
-type CacheOption struct {
-	CachePath string
+	InChannelCount int // 5000
+	ParallelCount  int // 208
+	WorkBufSize    int // 16*1024
 }
 
 func (o Option) storeDir() string {

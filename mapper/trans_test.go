@@ -1,4 +1,4 @@
-package refcode_test
+package mapper_test
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 
 	"context"
 	"fmt"
-	"github.com/reedom/refcode-cli/lib"
+	"github.com/reedom/refcode-cli/mapper"
 )
 
 func TestCountMarkerInContent(t *testing.T) {
@@ -16,7 +16,7 @@ alertError("@@REFCODE");
 return;
 `)
 	r := bytes.NewReader(code)
-	c, err := refcode.CountMarkerInContent(context.Background(), r, []byte("@@REFCODE"))
+	c, err := mapper.CountMarkerInContent(context.Background(), r, []byte("@@REFCODE"))
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	} else if c != 3 {
@@ -44,7 +44,7 @@ return;
 
 	r := bytes.NewReader(code)
 	w := new(bytes.Buffer)
-	err := refcode.TransformContent(context.Background(), r, w, []byte("@@REFCODE"), fn)
+	err := mapper.TransformContent(context.Background(), r, w, []byte("@@REFCODE"), fn)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	} else if !bytes.Equal(expected, w.Bytes()) {

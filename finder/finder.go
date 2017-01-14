@@ -14,22 +14,13 @@ type FileFinder interface {
 	Start(ctx context.Context, out chan string)
 }
 
-// FileFinderOpt is FileFinder configuration.
-type FileFinderOpt struct {
-	Includes        []string
-	Excludes        []string
-	GlobalGitIgnore bool
-	FollowSymlinks  bool
-	FollowHidden    bool
-}
-
 type fileFinder struct {
-	opts FileFinderOpt
+	opts Option
 	root string
 }
 
 // NewFileFinder returns FileFinder object.
-func NewFileFinder(opts FileFinderOpt, root string) FileFinder {
+func NewFileFinder(opts Option, root string) FileFinder {
 	return fileFinder{opts, root}
 }
 

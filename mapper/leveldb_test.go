@@ -1,4 +1,4 @@
-package refcode_test
+package mapper_test
 
 import (
 	"io/ioutil"
@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/reedom/refcode-cli/lib"
+	"github.com/reedom/refcode-cli/mapper"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -23,9 +23,9 @@ func TestStore(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := refcode.NewStore(db)
+	store := mapper.NewStore(db)
 
-	if _, err = store.GetTime("hello"); err != refcode.ErrNotFound {
+	if _, err = store.GetTime("hello"); err != mapper.ErrNotFound {
 		t.Errorf("expected ErrNotFound but %v", err)
 	}
 

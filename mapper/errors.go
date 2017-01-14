@@ -1,4 +1,4 @@
-package refcode
+package mapper
 
 import (
 	"github.com/pkg/errors"

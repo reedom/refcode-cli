@@ -61,7 +61,7 @@ func TestFindFile(t *testing.T) {
 
 	tmpdir = "."
 	for _, test := range testFindFiles {
-		opts := finder.FileFinderOpt{
+		opts := finder.Option{
 			Includes: test.includes,
 			Excludes: test.excludes,
 		}

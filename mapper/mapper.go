@@ -1,4 +1,4 @@
-package refcode
+package mapper
 
 import (
 	"context"
@@ -9,23 +9,17 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/reedom/refcode-cli/log"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-// Mapper replaces refcode template with reference code in each souce file.
-type Mapper interface {
-	Run(ctx context.Context, rootDir string) error
+type PathProvider interface {
+	Start(ctx context.Context, out chan string)
 }
 
-// MapperOpt is Mapper configuration.
-type MapperOpt struct {
-	Marker        string
-	ReplaceFormat string
-	DryRun        bool
-
-	InChannelCount int // 5000
-	ParallelCount  int // 208
-	WorkBufSize    int // 16*1024
+// Mapper replaces refcode template with reference code in each souce file.
+type Mapper interface {
+	Run(ctx context.Context, p PathProvider) error
 }
 
 type mapper struct {
@@ -66,7 +60,7 @@ func NewMapper(opts Option) (Mapper, error) {
 	store := NewStore(db)
 
 	return mapper{
-		in:    make(chan string, opts.Mapper.InChannelCount),
+		in:    make(chan string, opts.InChannelCount),
 		opts:  opts,
 		db:    db,
 		store: store,
@@ -88,9 +82,8 @@ func (m mapper) GetMappedCount() int32 {
 }
 
 // Run starts mapper.
-func (m mapper) Run(ctx context.Context, rootDir string) error {
-	finder := NewFileFinder(m.in, m.opts.FileFinder)
-	go finder.Start(ctx, rootDir)
+func (m mapper) Run(ctx context.Context, p PathProvider) error {
+	go p.Start(ctx, m.in)
 
 	done := make(chan struct{})
 	go func() {
@@ -100,10 +93,10 @@ func (m mapper) Run(ctx context.Context, rootDir string) error {
 
 	select {
 	case <-ctx.Done():
-		Verbose.Printf("ctx.Done")
+		log.Verbose.Printf("ctx.Done")
 		return ctx.Err()
 	case <-done:
-		Verbose.Printf("done")
+		log.Verbose.Printf("done")
 		return nil
 	}
 }
@@ -128,53 +121,53 @@ func (m mapper) handle(ctx context.Context, path string) {
 	m.stat.incReadCount()
 	info, err := os.Lstat(path)
 	if err != nil {
-		ErrorLog.Printf("Failed to stat file %q, %v", path, err)
+		log.ErrorLog.Printf("Failed to stat file %q, %v", path, err)
 		return
 	}
 
 	lastMTime, _ := m.store.GetTime(path)
 	if lastMTime.Equal(info.ModTime()) {
-		Verbose.Printf("skip unchanged file %q, %v", path, err)
+		log.Verbose.Printf("skip unchanged file %q, %v", path, err)
 		return
 	}
 
 	f, err := os.Open(path)
 	if err != nil {
-		ErrorLog.Printf("Failed to open file %q, %v", path, err)
+		log.ErrorLog.Printf("Failed to open file %q, %v", path, err)
 		return
 	}
 	defer f.Close()
 
-	marker := []byte(m.opts.Mapper.Marker)
+	marker := []byte(m.opts.Marker)
 	markerCount, err := CountMarkerInContent(ctx, f, marker)
 	if err != nil {
 		if err == ErrBinaryFile {
-			Verbose.Printf("skip binary file %q", path)
+			log.Verbose.Printf("skip binary file %q", path)
 			return
 		}
-		Verbose.Printf("cancel transform file %q, %v", path, err)
+		log.Verbose.Printf("cancel transform file %q, %v", path, err)
 		return
 	}
 	if markerCount == 0 {
-		Verbose.Printf("skip file %q, no marker found", path)
+		log.Verbose.Printf("skip file %q, no marker found", path)
 		return
 	}
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		ErrorLog.Printf("Failed to seek file %q, %v", path, err)
+		log.ErrorLog.Printf("Failed to seek file %q, %v", path, err)
 		return
 	}
 
 	transFn, err := m.createTransFn(path, markerCount)
 	if err != nil {
-		ErrorLog.Printf("Failed to prepare refcode mapper for %q, %v", path, err)
+		log.ErrorLog.Printf("Failed to prepare refcode mapper for %q, %v", path, err)
 		return
 	}
 
 	out, err := ioutil.TempFile("", "refcode")
 	if err != nil {
-		ErrorLog.Printf("Failed to create temp file for %q,  %v", path, err)
+		log.ErrorLog.Printf("Failed to create temp file for %q,  %v", path, err)
 		return
 	}
 	defer func() {
@@ -183,21 +176,21 @@ func (m mapper) handle(ctx context.Context, path string) {
 		}
 	}()
 
-	Verbose.Printf("map refcode on %q", path)
+	log.Verbose.Printf("map refcode on %q", path)
 	err = TransformContent(ctx, f, out, marker, transFn)
 	if err != nil {
-		ErrorLog.Printf("Error on map refcode on %q,  %v", path, err)
+		log.ErrorLog.Printf("Error on map refcode on %q,  %v", path, err)
 		return
 	}
 
 	err = out.Close()
 	if err != nil {
-		ErrorLog.Printf("Failed to close temp file for %q,  %v", path, err)
+		log.ErrorLog.Printf("Failed to close temp file for %q,  %v", path, err)
 		return
 	}
 	err = os.Rename(out.Name(), path)
 	if err != nil {
-		ErrorLog.Printf("Failed to replace file %q,  %v", path, err)
+		log.ErrorLog.Printf("Failed to replace file %q,  %v", path, err)
 		return
 	}
 
@@ -205,7 +198,7 @@ func (m mapper) handle(ctx context.Context, path string) {
 
 	err = m.store.PutTime(path, info.ModTime())
 	if err != nil {
-		ErrorLog.Printf("Failed to store mtime of %q,  %v", path, err)
+		log.ErrorLog.Printf("Failed to store mtime of %q,  %v", path, err)
 		return
 	}
 }
