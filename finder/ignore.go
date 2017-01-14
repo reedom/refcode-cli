@@ -1,4 +1,4 @@
-package refcode
+package finder
 
 import (
 	"os/exec"

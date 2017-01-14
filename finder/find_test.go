@@ -1,4 +1,4 @@
-package refcode_test
+package finder_test
 
 import (
 	"io/ioutil"
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"context"
-	"github.com/reedom/refcode-cli/lib"
+	"github.com/reedom/refcode-cli/finder"
 )
 
 func setup(t *testing.T) string {
@@ -62,11 +62,11 @@ func TestFindFile(t *testing.T) {
 	tmpdir = "."
 	for _, test := range testFindFiles {
 		out := make(chan string)
-		opts := refcode.FileFinderOpt{
+		opts := finder.FileFinderOpt{
 			Includes: test.includes,
 			Excludes: test.excludes,
 		}
-		find := refcode.NewFileFinder(out, opts)
+		find := finder.NewFileFinder(out, opts)
 		go find.Start(context.Background(), tmpdir)
 
 		actual := getFoundFiles(out)

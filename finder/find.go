@@ -1,4 +1,4 @@
-package refcode
+package finder
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/monochromegane/go-gitignore"
+	"github.com/reedom/refcode-cli/log"
 )
 
 // FileFinder traverses directory and passes file paths through out channel.
@@ -38,7 +39,7 @@ func (f fileFinder) Start(ctx context.Context, root string) {
 	var ignores ignoreMatchers
 
 	if len(f.opts.Includes) == 0 {
-		Verbose.Println("includes is empty; exit file finder")
+		log.Verbose.Println("includes is empty; exit file finder")
 		return
 	}
 
@@ -53,17 +54,17 @@ func (f fileFinder) Start(ctx context.Context, root string) {
 	// add global gitignore.
 	if f.opts.GlobalGitIgnore {
 		if ignore := globalGitIgnore(root); ignore != nil {
-			Verbose.Println("use ~/.gitignore")
+			log.Verbose.Println("use ~/.gitignore")
 			ignores = append(ignores, ignore)
 		}
 	}
 
 	includes := f.includes(root)
 	walkFn := func(info fileInfo, ignores ignoreMatchers) (ignoreMatchers, error) {
-		Verbose.Println("check path", info.path)
+		log.Verbose.Println("check path", info.path)
 		if info.isDir(f.opts.FollowSymlinks) {
 			if ignores.Match(info.path, true) {
-				Verbose.Println("skip directory", info.path, "(matches with excludes/gitignore)")
+				log.Verbose.Println("skip directory", info.path, "(matches with excludes/gitignore)")
 				return ignores, filepath.SkipDir
 			}
 
@@ -71,12 +72,12 @@ func (f fileFinder) Start(ctx context.Context, root string) {
 				return ignores, filepath.SkipDir
 			}
 
-			Verbose.Println("enter directory", info.path)
+			log.Verbose.Println("enter directory", info.path)
 			ignores = append(ignores, newIgnoreMatchers(info.path, []string{".gitignore"})...)
 			return ignores, nil
 		}
 		if !f.opts.FollowSymlinks && info.isSymlink() {
-			Verbose.Println("skip symlink", info.path)
+			log.Verbose.Println("skip symlink", info.path)
 			return ignores, nil
 		}
 
@@ -85,12 +86,12 @@ func (f fileFinder) Start(ctx context.Context, root string) {
 		}
 
 		if ignores.Match(info.path, false) {
-			Verbose.Println("skip file", info.path, "(matches with excludes/gitignore)")
+			log.Verbose.Println("skip file", info.path, "(matches with excludes/gitignore)")
 			return ignores, nil
 		}
 
 		if !includes.Match(info.path, false) {
-			Verbose.Println("skip file", info.path, "(does not matche with includes)")
+			log.Verbose.Println("skip file", info.path, "(does not matche with includes)")
 			return ignores, nil
 		}
 
