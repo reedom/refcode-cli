@@ -1,4 +1,4 @@
-package refcode
+package log
 
 import (
 	"io/ioutil"
