@@ -21,13 +21,23 @@
 package cmd
 
 import (
+	"context"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/reedom/refcode-cli/finder"
+	"github.com/reedom/refcode-cli/mapper"
+	"github.com/reedom/refcode-cli/uniqid"
 )
 
 // mapCmd represents the map command
 var mapCmd = &cobra.Command{
-	Use:   "map",
+	Use:   "map [code directory]",
 	Short: "Map reference code into source code files.",
 	Long: `Traverse source code files and replace refcode skeleton string
 with real reference code.`,
@@ -35,8 +45,48 @@ with real reference code.`,
 		return initErr
 	},
 
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		buildMapOpts(cmd)
+
+		var root string
+		if 0 < len(args) {
+			root = args[0]
+		} else {
+			root = "."
+		}
+
+		finder := finder.NewFileFinder(opts.FileFinder, root)
+		idgen := uniqid.NewFileSeq(filepath.Join(opts.Mapper.DataDir, "uniqid"))
+		mapper, err := mapper.NewMapper(opts.Mapper, finder, idgen)
+		if err != nil {
+			return err
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		trapSignals := []os.Signal{
+			syscall.SIGHUP,
+			syscall.SIGINT,
+			syscall.SIGTERM,
+			syscall.SIGQUIT,
+		}
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, trapSignals...)
+
+		chErr := make(chan error, 1)
+		go func() {
+			chErr <- mapper.Run(ctx)
+		}()
+
+		for {
+			select {
+			case err = <-chErr:
+				return err
+			case <-sigCh:
+				cancel()
+			}
+		}
 	},
 }
 
@@ -60,10 +110,10 @@ func init() {
 
 	mapCmd.Flags().BoolP("dryrun", "n", false, "dry run")
 
-	mapCmd.Flags().StringP("pattern", "p", "", "source pattern in regular expression")
-	viper.BindPFlag("mapper.pattern", mapCmd.Flags().Lookup("pattern"))
+	mapCmd.Flags().StringP("marker", "p", "", "replace marker")
+	viper.BindPFlag("mapper.marker", mapCmd.Flags().Lookup("marker"))
 
-	mapCmd.Flags().StringP("replare", "r", "", "replace template")
+	mapCmd.Flags().StringP("replace", "r", "", "replace template")
 	viper.BindPFlag("mapper.replace", mapCmd.Flags().Lookup("replace"))
 
 	mapCmd.Flags().StringSliceP("includes", "i", nil, "include file patterns, delimited by comma(,)")
@@ -80,8 +130,10 @@ func init() {
 }
 
 func buildMapOpts(cmd *cobra.Command) {
-	opts.Mapper.Pattern = viper.GetString("mapper.pattern")
-	opts.Mapper.Replace = viper.GetString("mapper.replace")
+	opts.Mapper.Codespace = viper.GetString("codespace")
+	opts.Mapper.DataDir = viper.GetString("dataDir")
+	opts.Mapper.Marker = viper.GetString("mapper.marker")
+	opts.Mapper.ReplaceFormat = viper.GetString("mapper.replace")
 	var err error
 	if opts.Mapper.DryRun, err = cmd.Flags().GetBool("dryrun"); err != nil {
 		panic(err)

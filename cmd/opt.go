@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"path/filepath"
-
 	"github.com/reedom/refcode-cli/finder"
 	"github.com/reedom/refcode-cli/mapper"
 )

@@ -27,9 +27,10 @@ import (
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
-	"github.com/reedom/refcode-cli/lib"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/reedom/refcode-cli/log"
 )
 
 var (
@@ -38,7 +39,7 @@ var (
 	version  string
 	revision string
 	initErr  error
-	opts     refcode.Option
+	opts     Option
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -128,7 +129,7 @@ func init() {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	if verbose {
-		refcode.EnableVerboseLog()
+		log.EnableVerboseLog()
 	}
 
 	var err error
@@ -159,7 +160,7 @@ func initConfig() {
 		return
 	}
 	viper.Set("dataDir", dataDir)
-	refcode.Verbose.Println("dataDir:", dataDir)
+	log.Verbose.Println("dataDir:", dataDir)
 }
 
 func buildRootOpts() {
