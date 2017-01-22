@@ -164,8 +164,11 @@ func initConfig() {
 }
 
 func buildRootOpts() {
-	opts.Codespace = viper.GetString("codespace")
-	opts.DataDir = viper.GetString("dataDir")
-	opts.Remote.Endpoint = viper.GetString("remote.endpoint")
-	opts.Remote.SecretKey = viper.GetString("remote.secretKey")
+	if err := viper.Unmarshal(&opts); err != nil {
+		panic(err)
+	}
+	// opts.Codespace = viper.GetString("codespace")
+	// opts.DataDir = viper.GetString("dataDir")
+	// opts.Remote.Endpoint = viper.GetString("remote.endpoint")
+	// opts.Remote.SecretKey = viper.GetString("remote.secretKey")
 }

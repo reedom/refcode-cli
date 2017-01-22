@@ -56,7 +56,11 @@ with real reference code.`,
 		}
 
 		finder := finder.NewFileFinder(opts.FileFinder, root)
-		idgen := uniqid.NewFileSeq(filepath.Join(opts.Mapper.DataDir, "uniqid"))
+		idgen, err := createIdGen()
+		if err != nil {
+			return err
+		}
+
 		mapper, err := mapper.NewMapper(opts.Mapper, finder, idgen)
 		if err != nil {
 			return err
@@ -88,6 +92,25 @@ with real reference code.`,
 			}
 		}
 	},
+}
+
+func createIdGen() (uniqid.Generator, error) {
+	switch viper.GetString("mapper.generator") {
+	case "remote":
+		idgen := uniqid.NewRemoteStore(opts.Remote.Endpoint)
+		return idgen, nil
+	default: // "standalone":
+		switch viper.GetString("standalone.type") {
+		case "fileSeqNum":
+			var seqNumberGenOpt uniqid.SeqNumberGenOption
+			viper.UnmarshalKey("standalone.fileSeqNumParams", &seqNumberGenOpt)
+			seqNumberGenOpt.Max = viper.GetInt64("standalone.fileSeqNumParams.max")
+			algo := uniqid.NewSeqNumberGen(seqNumberGenOpt)
+			idgen := uniqid.NewFileStore(filepath.Join(opts.Mapper.DataDir, "uniqid"), algo)
+			return idgen, nil
+		}
+	}
+	return nil, nil
 }
 
 func init() {
@@ -127,20 +150,37 @@ func init() {
 
 	mapCmd.Flags().BoolP("symlink", "", false, "whether follow symlink")
 	viper.BindPFlag("files.followSymlink", mapCmd.Flags().Lookup("symlink"))
+
+	viper.SetDefault("mapper.generator", "standalone")
+	// uniqid.algorithm
+	viper.SetDefault("standalone.type", "fileSeqNum")
+	viper.SetDefault("standalone.fileSeqNumParams.max", uniqid.MaxInt)
 }
 
 func buildMapOpts(cmd *cobra.Command) {
-	opts.Mapper.Codespace = viper.GetString("codespace")
-	opts.Mapper.DataDir = viper.GetString("dataDir")
-	opts.Mapper.Marker = viper.GetString("mapper.marker")
-	opts.Mapper.ReplaceFormat = viper.GetString("mapper.replace")
+	if err := viper.Unmarshal(&opts); err != nil {
+		panic(err)
+	}
+	if err := viper.UnmarshalKey("files", &opts.FileFinder); err != nil {
+		panic(err)
+	}
+
+	if err := viper.UnmarshalKey("remote", &opts.Remote); err != nil {
+		panic(err)
+	}
+
+	opts.Mapper.Codespace = opts.Codespace
+	opts.Mapper.DataDir = opts.DataDir
+	// opts.Mapper.Marker = viper.GetString("mapper.marker")
+	// opts.Mapper.ReplaceFormat = viper.GetString("mapper.replace")
+
 	var err error
 	if opts.Mapper.DryRun, err = cmd.Flags().GetBool("dryrun"); err != nil {
 		panic(err)
 	}
 
-	opts.FileFinder.Includes = viper.GetStringSlice("files.includes")
-	opts.FileFinder.Excludes = viper.GetStringSlice("files.excludes")
-	opts.FileFinder.GlobalGitIgnore = viper.GetBool("files.globalGitIgnore")
-	opts.FileFinder.FollowSymlinks = viper.GetBool("files.followSymlink")
+	// opts.FileFinder.Includes = viper.GetStringSlice("files.includes")
+	// opts.FileFinder.Excludes = viper.GetStringSlice("files.excludes")
+	// opts.FileFinder.GlobalGitIgnore = viper.GetBool("files.globalGitIgnore")
+	// opts.FileFinder.FollowSymlinks = viper.GetBool("files.followSymlink")
 }

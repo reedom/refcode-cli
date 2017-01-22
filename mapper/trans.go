@@ -9,7 +9,7 @@ import (
 
 // CountMarkerInContent counts how many times the specified marker
 // found in the content.
-func CountMarkerInContent(ctx context.Context, r io.Reader, marker []byte) (c int, err error) {
+func CountMarkerInContent(ctx context.Context, r io.Reader, marker []byte) (c int64, err error) {
 	l := len(marker)
 	if l == 0 {
 		panic("CountMarkerInContent() arg marker is empty")

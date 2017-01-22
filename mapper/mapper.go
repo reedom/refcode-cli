@@ -18,7 +18,7 @@ type PathProvider interface {
 }
 
 type IDGenerator interface {
-	Generate(ctx context.Context, key, sub []byte, n int) ([][]byte, error)
+	Generate(ctx context.Context, key, sub []byte, n int64) ([][]byte, error)
 }
 
 // Mapper replaces refcode template with reference code in each souce file.
@@ -213,7 +213,7 @@ func (m mapper) handle(ctx context.Context, path string) {
 
 var refcode int
 
-func (m mapper) createTransFn(ctx context.Context, path string, markerCount int) (TransFn, error) {
+func (m mapper) createTransFn(ctx context.Context, path string, markerCount int64) (TransFn, error) {
 	codes, err := m.idgen.Generate(ctx, []byte(m.opts.Codespace), nil, markerCount)
 	if err != nil {
 		return nil, err

@@ -3,29 +3,28 @@ package uniqid
 import (
 	"context"
 	"crypto/sha1"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 )
 
 type Generator interface {
-	Generate(ctx context.Context, key, sub []byte, n int) ([][]byte, error)
+	Generate(ctx context.Context, key, sub []byte, n int64) ([][]byte, error)
 }
 
-type seqFileStore struct {
+type fileStore struct {
 	dir string
+	a   Algorithm
 	m   *sync.Mutex
 }
 
-func NewFileSeq(dataDir string) Generator {
-	return &seqFileStore{dataDir, &sync.Mutex{}}
+func NewFileStore(dataDir string, a Algorithm) Generator {
+	return &fileStore{dataDir, a, &sync.Mutex{}}
 }
 
-func (s *seqFileStore) Generate(ctx context.Context, key, sub []byte, n int) ([][]byte, error) {
+func (s *fileStore) Generate(ctx context.Context, key, sub []byte, n int64) ([][]byte, error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
@@ -40,35 +39,34 @@ func (s *seqFileStore) Generate(ctx context.Context, key, sub []byte, n int) ([]
 	}
 	defer f.Close()
 
-	var c uint64
-	if err = binary.Read(f, binary.LittleEndian, &c); err != nil {
-		if err != io.EOF {
-			return nil, err
-		}
+	if err = s.a.Load(f); err != nil {
+		return nil, err
 	}
 
 	ids := make([][]byte, n)
-	for i := 0; i < n; i++ {
-		c++
-		ids[i] = strconv.AppendUint(nil, c, 10)
+	for i := int64(0); i < n; i++ {
+		ids[i], err = s.a.NextValue()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if _, err = f.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
-	if err = binary.Write(f, binary.LittleEndian, c); err != nil {
+	if err = s.a.Save(f); err != nil {
 		return nil, err
 	}
 
 	return ids, nil
 }
 
-func (s *seqFileStore) getStoreDir(key []byte) string {
+func (s *fileStore) getStoreDir(key []byte) string {
 	hash := sha1.Sum(key)
 	return filepath.Join(s.dir, fmt.Sprintf("%x", hash[:]))
 }
 
-func (s *seqFileStore) getFileName(sub []byte) string {
+func (s *fileStore) getFileName(sub []byte) string {
 	hash := sha1.Sum(sub)
 	return fmt.Sprintf("%x", hash[:])
 }
